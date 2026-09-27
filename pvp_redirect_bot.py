@@ -1,4 +1,6 @@
 import os
+import io
+import aiohttp
 import discord
 
 # ============================================================
@@ -71,16 +73,50 @@ async def on_message(message: discord.Message):
         if pvp_channel is None:
             pvp_channel = await bot.fetch_channel(PVP_CHANNEL_ID)
 
-        # Copy the original Dink embed.
-        # This preserves the Player Kill title, text, world/location,
-        # screenshot/image and footer supplied by Dink.
-        embeds = [embed.copy() for embed in message.embeds]
+        # Copy the Dink embed. Dink's screenshot can be hosted as a
+        # Discord attachment/proxy URL. Simply copying the embed URL can
+        # result in Discord not rendering the image in the new message.
+        # Download the image and re-upload it to the PvP channel instead.
+        embeds = [e.copy() for e in message.embeds]
+        files = []
 
-        # Copy any normal message content too, although Dink normally
-        # puts the Player Kill information inside the embed.
+        image_url = None
+
+        # Prefer an actual Discord attachment if Dink supplied one.
+        if message.attachments:
+            attachment = message.attachments[0]
+            if attachment.content_type and attachment.content_type.startswith("image/"):
+                image_url = attachment.url
+
+        # Otherwise use the image URL stored in the Dink embed.
+        if image_url is None:
+            for e in embeds:
+                if e.image and e.image.url:
+                    image_url = e.image.url
+                    break
+
+        if image_url:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(image_url) as response:
+                    response.raise_for_status()
+                    image_data = await response.read()
+
+            # Keep the screenshot as an attachment so it is hosted by
+            # Discord in the new PvP message and cannot depend on Dink's
+            # original/expiring image URL.
+            filename = "pvp_screenshot.png"
+            files.append(
+                discord.File(io.BytesIO(image_data), filename=filename)
+            )
+
+            for e in embeds:
+                if e.image and e.image.url:
+                    e.set_image(url=f"attachment://{filename}")
+
         await pvp_channel.send(
             content=message.content or None,
             embeds=embeds,
+            files=files,
         )
 
         print(
