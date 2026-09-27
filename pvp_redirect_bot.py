@@ -12,7 +12,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 DROPS_CHANNEL_ID = 1540706808262430792
 
 # Dedicated PvP channel.
-PVP_CHANNEL_ID = 1553587563380347053
+PVP_CHANNEL_ID = 1553869180925644811
 
 # Dink's PvP notification uses this embed title.
 PLAYER_KILL_TITLE = "Player Kill"
